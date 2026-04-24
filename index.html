@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>menumusic</title>
+<meta name="description" content="macOS のメニューバーから Music.app を操作する、小さな常駐アプリ。" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=JetBrains+Mono:wght@400;500&family=Shippori+Mincho+B1:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --paper:  #f6f3ec;
+  --paper-2:#ede8dc;
+  --ink:    #1a1815;
+  --ink-2:  #6b6760;
+  --ink-3:  #a8a298;
+  --rule:   #d9d3c6;
+  --accent: #b85540;
+
+  --serif: "Fraunces", serif;
+  --jp:    "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--jp);
+  font-feature-settings:"palt";
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* paper grain — very subtle */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:100;
+  opacity:.06; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+::selection{ background:var(--accent); color:var(--paper); }
+a{ color:inherit; text-decoration:none; }
+
+/* —— layout —————————————————————————— */
+.page{
+  max-width:640px;
+  margin:0 auto;
+  padding:80px 32px 80px;
+}
+
+/* —— top mark —————————————————————————— */
+.mark{
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--mono); font-size:11px;
+  letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-2);
+}
+.mark .dot{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 0 3px rgba(184,85,64,.12);
+  animation:pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100%{ opacity:1; }
+  50%{ opacity:.45; }
+}
+
+/* —— hero —————————————————————————— */
+.hero{
+  margin-top:64px;
+  padding-bottom:56px;
+  border-bottom:1px solid var(--rule);
+}
+h1.name{
+  font-family:var(--serif);
+  font-weight:400;
+  font-size:84px;
+  line-height:.95;
+  letter-spacing:-.035em;
+  margin:0;
+  color:var(--ink);
+}
+h1.name .i{
+  font-style:italic;
+  font-weight:300;
+}
+.lede{
+  margin:28px 0 0;
+  font-size:16px;
+  line-height:1.9;
+  color:var(--ink-2);
+  max-width:520px;
+}
+.lede b{ color:var(--ink); font-weight:600; }
+
+/* —— screenshot —————————————————————————— */
+.shot{
+  margin:48px 0 0;
+  display:flex; flex-direction:column; gap:10px;
+}
+.shot img{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:6px;
+  box-shadow:0 14px 40px -18px rgba(0,0,0,.35);
+  border:1px solid var(--rule);
+  background:#000;
+}
+.shot figcaption{
+  font-family:var(--mono); font-size:10px;
+  letter-spacing:.2em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+
+/* —— sections —————————————————————————— */
+section{
+  padding:56px 0;
+  border-bottom:1px solid var(--rule);
+}
+section:last-of-type{ border-bottom:0; }
+
+.sec-label{
+  font-family:var(--mono); font-size:11px;
+  letter-spacing:.22em; text-transform:uppercase;
+  color:var(--ink-3);
+  display:flex; align-items:center; gap:14px;
+  margin-bottom:32px;
+}
+.sec-label::after{
+  content:""; flex:1; height:1px; background:var(--rule);
+}
+.sec-label .num{
+  font-family:var(--serif); font-style:italic; font-weight:300;
+  color:var(--accent); font-size:14px;
+  letter-spacing:0; text-transform:none;
+}
+
+/* —— section intro —————————————————————————— */
+.intro{
+  margin:0 0 28px;
+  font-size:14.5px;
+  line-height:1.9;
+  color:var(--ink);
+}
+
+/* —— features list —————————————————————————— */
+.features{
+  list-style:none; padding:0; margin:0;
+}
+.features li{
+  display:grid;
+  grid-template-columns:140px 1fr;
+  gap:24px;
+  padding:18px 0;
+  border-top:1px solid var(--rule);
+  align-items:baseline;
+}
+.features li:last-child{ border-bottom:1px solid var(--rule); }
+.features .k{
+  font-family:var(--jp); font-weight:600;
+  font-size:14px; color:var(--ink);
+  letter-spacing:.01em;
+}
+.features .v{
+  font-size:13.5px;
+  color:var(--ink-2);
+  line-height:1.8;
+}
+
+/* —— spec inline —————————————————————————— */
+.spec{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:18px 32px;
+  margin:0;
+  padding:0;
+}
+.spec div{ display:flex; flex-direction:column; gap:4px; }
+.spec .k{
+  font-family:var(--mono); font-size:10px;
+  letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+.spec .v{
+  font-family:var(--jp); font-weight:500;
+  font-size:14px; color:var(--ink);
+}
+.spec .v em{
+  font-family:var(--serif); font-style:italic; font-weight:300;
+  color:var(--accent);
+  font-size:1em;
+}
+
+/* —— install steps —————————————————————————— */
+.steps{
+  list-style:none; padding:0; margin:0;
+  counter-reset:s;
+}
+.steps li{
+  counter-increment:s;
+  position:relative;
+  padding:14px 0 14px 44px;
+  border-top:1px solid var(--rule);
+  font-size:14px;
+  color:var(--ink);
+  line-height:1.8;
+}
+.steps li:last-child{ border-bottom:1px solid var(--rule); }
+.steps li::before{
+  content:counter(s,decimal-leading-zero);
+  position:absolute; left:0; top:14px;
+  font-family:var(--mono); font-size:11px;
+  color:var(--accent); letter-spacing:.1em;
+}
+.kbd{
+  display:inline-block;
+  font-family:var(--mono); font-size:11.5px;
+  background:var(--paper-2); color:var(--ink);
+  border:1px solid var(--rule);
+  padding:1px 6px; border-radius:3px;
+  margin:0 1px;
+}
+
+/* —— download —————————————————————————— */
+.dl{
+  display:flex; align-items:center; gap:24px;
+  flex-wrap:wrap;
+}
+.btn{
+  display:inline-flex; align-items:center; gap:12px;
+  padding:14px 22px;
+  font-family:var(--mono); font-size:12px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase;
+  background:var(--ink); color:var(--paper);
+  border:1px solid var(--ink);
+  cursor:pointer;
+  transition:background .18s, color .18s, transform .18s;
+}
+.btn:hover{
+  background:var(--accent); border-color:var(--accent);
+  transform:translateY(-1px);
+}
+.btn .arr{ transition:transform .2s; }
+.btn:hover .arr{ transform:translateX(4px); }
+
+.dl .meta{
+  font-family:var(--mono); font-size:10.5px;
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+.dl .meta b{ color:var(--ink); font-weight:500; }
+
+/* —— spec small note —————————————————————————— */
+.spec-note{
+  margin:18px 0 0;
+  font-size:12px;
+  color:var(--ink-3);
+  line-height:1.7;
+}
+
+/* —— download note —————————————————————————— */
+.note{
+  margin:22px 0 0;
+  padding:14px 16px;
+  background:var(--paper-2);
+  border-left:2px solid var(--accent);
+  font-size:13px;
+  line-height:1.8;
+  color:var(--ink-2);
+}
+
+/* —— install sub note —————————————————————————— */
+.steps .sub{
+  display:inline-block;
+  margin-top:6px;
+  font-size:12.5px;
+  color:var(--ink-2);
+  line-height:1.75;
+}
+
+/* —— troubleshoot —————————————————————————— */
+.tshoot{
+  margin:0; padding:0;
+}
+.tshoot dt{
+  font-family:var(--jp);
+  font-weight:600;
+  font-size:14px;
+  color:var(--ink);
+  padding:16px 0 8px;
+  border-top:1px solid var(--rule);
+}
+.tshoot dt:first-child{ border-top:0; padding-top:0; }
+.tshoot dd{
+  margin:0 0 20px;
+  font-size:13.5px;
+  line-height:1.85;
+  color:var(--ink-2);
+}
+.tshoot dd b{ color:var(--ink); font-weight:600; }
+.cmd{
+  display:block;
+  margin:10px 0;
+  padding:10px 14px;
+  background:var(--ink);
+  color:var(--paper);
+  font-family:var(--mono);
+  font-size:12px;
+  line-height:1.6;
+  border-radius:4px;
+  overflow-x:auto;
+  white-space:pre;
+}
+
+/* —— footer —————————————————————————— */
+footer{
+  margin-top:32px;
+  padding-top:28px;
+  border-top:1px solid var(--rule);
+  display:flex; justify-content:space-between;
+  font-family:var(--mono); font-size:10px;
+  letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+
+/* —— responsive —————————————————————————— */
+@media (max-width:560px){
+  .page{ padding:56px 22px 56px; }
+  h1.name{ font-size:60px; }
+  .features li{ grid-template-columns:1fr; gap:6px; padding:16px 0; }
+  .spec{ grid-template-columns:1fr; gap:14px; }
+  footer{ flex-direction:column; gap:8px; }
+}
+</style>
+</head>
+<body>
+
+<main class="page">
+
+  <div class="mark">
+    <span class="dot"></span>
+    <span>menumusic</span>
+  </div>
+
+  <!-- ── HERO ── -->
+  <section class="hero" style="border-top:0;padding-top:0;">
+    <h1 class="name">menumusic<span class="i">.</span></h1>
+    <p class="lede">
+      macOS のメニューバーから <b>Music.app</b> を操作するための、小さな常駐アプリ。
+    </p>
+
+    <figure class="shot">
+      <img src="SS20260424.png" alt="menumusic のメニューバー表示とコントロールパネルのスクリーンショット" />
+      <figcaption>— 実際の表示（メニューバー＋コントロールパネル）</figcaption>
+    </figure>
+  </section>
+
+  <!-- ── FEATURES ── -->
+  <section>
+    <div class="sec-label"><span class="num">01</span> できること</div>
+    <p class="intro">
+      Music.app でプレイリスト運用をメインにしている方に向けて作ったアプリです。
+    </p>
+    <ul class="features">
+      <li>
+        <div class="k">メニューバー表示</div>
+        <div class="v">再生中の曲名・アーティスト・アルバム名・経過時間を 1 行で表示。表示する項目はそれぞれオン / オフで選べます。</div>
+      </li>
+      <li>
+        <div class="k">再生コントロール</div>
+        <div class="v">メニューバーを左クリックすると操作パネルが開き、再生 / スキップ / シーク / 音量をその場で操作できます。</div>
+      </li>
+      <li>
+        <div class="k">通知パネル</div>
+        <div class="v">操作パネルが開いていないときに曲が変わると、アートワークと曲名が画面上にふわっと表示され、数秒で自動的に消えます。</div>
+      </li>
+      <li>
+        <div class="k">ループ切替</div>
+        <div class="v">オフ / 1 曲 / 全曲 を切替。</div>
+      </li>
+      <li>
+        <div class="k">右クリック設定</div>
+        <div class="v">表示項目・常に最前面・プレイリスト一覧などの設定。</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── DOWNLOAD ── -->
+  <section>
+    <div class="sec-label"><span class="num">02</span> ダウンロード</div>
+    <div class="dl">
+      <a href="https://github.com/tonkie-butaoni/menumusic-release/releases/latest/download/menumusic.dmg" class="btn">menumusic.dmg <span class="arr">→</span></a>
+      <div class="meta"><b>v0.5.0</b> · 無料 · macOS 13+ · Universal</div>
+    </div>
+    <p class="note">
+      ※ このアプリは Apple の開発者署名を付けていません。そのため、初回起動にはひと手間必要です。下のインストール手順をご確認ください。
+    </p>
+  </section>
+
+  <!-- ── INSTALL ── -->
+  <section>
+    <div class="sec-label"><span class="num">03</span> インストール</div>
+    <ol class="steps">
+      <li>
+        ダウンロードした <span class="kbd">menumusic.dmg</span> をダブルクリックでマウントし、開いたウインドウ内の <span class="kbd">menumusic.app</span> を <span class="kbd">アプリケーション</span> フォルダにドラッグして入れる。
+      </li>
+      <li>
+        <b>Finder で <span class="kbd">menumusic.app</span> を右クリック（または control + クリック）→ 「開く」を選ぶ。</b><br>
+        <span class="sub">「開発元を確認できないため開けません」という警告が出ますが、そのまま「開く」を押してください。初回だけ必要な手順です。</span>
+      </li>
+      <li>
+        メニューバーに小さな♪アイコンが出ます。Music.app で曲を再生すると、曲名や経過時間が表示されます。
+      </li>
+    </ol>
+  </section>
+
+  <!-- ── TROUBLESHOOT ── -->
+  <section>
+    <div class="sec-label"><span class="num">04</span> うまく起動しないとき</div>
+    <dl class="tshoot">
+      <dt>「"menumusic" は壊れているため開けません」と出る</dt>
+      <dd>
+        macOS のセキュリティ機能（Gatekeeper）がブロックしています。ターミナルを開いて、以下を 1 行コピー＆ペーストして実行してください。パスワードを聞かれたら Mac のログインパスワードを入力します。
+        <pre class="cmd">xattr -cr /Applications/menumusic.app</pre>
+        その後、手順 2 と同じように右クリック →「開く」で起動できます。
+      </dd>
+
+      <dt>macOS Sequoia（15）以降で「開く」ボタンが出ない</dt>
+      <dd>
+        右クリック →「開く」を試してブロックされた後、<b>システム設定 → プライバシーとセキュリティ</b> を開きます。画面を下にスクロールすると「"menumusic" は開発元を確認できないため使用がブロックされました」という項目があるので、隣の <b>「このまま開く」</b> を押してください。
+      </dd>
+
+      <dt>曲情報が表示されない・更新されない</dt>
+      <dd>
+        初回起動時に Music.app の操作許可を求めるダイアログが出ます。<b>「OK」を押してください。</b>間違って「許可しない」を押した場合は、<b>システム設定 → プライバシーとセキュリティ → オートメーション</b> から menumusic の「ミュージック」を ON にしてください。
+      </dd>
+    </dl>
+  </section>
+
+  <!-- ── SPEC ── -->
+  <section>
+    <div class="sec-label"><span class="num">05</span> 動作環境</div>
+    <div class="spec">
+      <div><span class="k">— OS</span><span class="v">macOS <em>13.0</em> 以降</span></div>
+      <div><span class="k">— CPU</span><span class="v">Apple Silicon / Intel（Universal）</span></div>
+      <div><span class="k">— 必須</span><span class="v">Music.app</span></div>
+      <div><span class="k">— バージョン</span><span class="v"><em>0.5.0</em></span></div>
+      <div><span class="k">— 価格</span><span class="v"><em>無料</em></span></div>
+      <div><span class="k">— 署名</span><span class="v">なし</span></div>
+    </div>
+    <p class="spec-note">古いOSで動作確認はしていませんが、多分動くと思います…</p>
+  </section>
+
+  <footer>
+    <div>© menumusic</div>
+    <div>made for macOS</div>
+  </footer>
+
+</main>
+
+</body>
+</html>
